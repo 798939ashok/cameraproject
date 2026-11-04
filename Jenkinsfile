@@ -11,14 +11,14 @@ pipeline{
         stage('Build Docker Image') {
             steps {
                 echo 'Docker image build chesthuna....'
-                sh 'docker build -t camera-suprise-app .'
+                sh 'docker build -t cameraproject .'
             }
         }
         stage('Deploy App'){
             steps {
                 echo 'Old container unte teessesi, kothadhi run cheyi'
                 sh 'docker rm -f camera-container || exit 0'
-                sh 'docker run -d -p 8081:80 --name camera-container cameraproject'
+                sh 'docker run -d -p 8081:80 --name camera-container cameraproject:latest'
             }
         }
     }
