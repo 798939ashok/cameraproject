@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Surprise </title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=Nunito:wght@700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#FFE94D;
+  --ink:#1B1464;
+  --accent:#FF3D81;
+  --on-accent:#1B1464;
+  --panel:#FFFFFF;
+  --muted:#4A43A0;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#1B1464;
+    --ink:#FFE94D;
+    --accent:#FF3D81;
+    --on-accent:#1B1464;
+    --panel:#2A2189;
+    --muted:#E4D86A;
+    color-scheme:dark;
+  }
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{min-height:100%}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:"Nunito","Trebuchet MS",system-ui,sans-serif;
+  font-weight:700;
+  display:flex;
+  justify-content:center;
+  -webkit-tap-highlight-color:transparent;
+}
+main{
+  width:100%;
+  max-width:480px;
+  min-height:100dvh;
+  padding:max(18px,env(safe-area-inset-top)) 18px max(22px,env(safe-area-inset-bottom));
+  display:flex;
+  flex-direction:column;
+  gap:16px;
+}
+h1{
+  font-family:"Bagel Fat One","Arial Rounded MT Bold","Trebuchet MS",sans-serif;
+  font-weight:400;
+  font-size:clamp(34px,10vw,46px);
+  line-height:1;
+}
+.tagline{font-size:15px;color:var(--muted);margin-top:6px;max-width:36ch}
+
+.frame{
+  position:relative;
+  width:100%;
+  aspect-ratio:3/4;
+  background:var(--panel);
+  border:4px solid var(--ink);
+  border-radius:22px;
+  overflow:hidden;
+  box-shadow:8px 8px 0 var(--ink);
+  flex-shrink:0;
+}
+.frame video,.frame canvas{
+  position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+}
+.frame video.mirror{transform:scaleX(-1)}
+.frame canvas{animation:pop .45s cubic-bezier(.2,1.4,.4,1)}
+@keyframes pop{from{transform:scale(.9) rotate(-2deg);opacity:.2}}
+
+.shuffle{
+  position:absolute;inset:0;
+  display:none;
+  align-items:center;justify-content:center;
+  padding:24px;
+  background:var(--accent);
+  color:var(--on-accent);
+  font-family:"Bagel Fat One","Arial Rounded MT Bold","Trebuchet MS",sans-serif;
+  font-size:clamp(34px,11vw,52px);
+  line-height:1.05;
+  text-align:center;
+}
+.frame[data-state="live"] #out{display:none}
+.frame[data-state="busy"] video,
+.frame[data-state="busy"] #out{display:none}
+.frame[data-state="busy"] .shuffle{display:flex}
+.frame[data-state="result"] video{display:none}
+
+.nameTag{
+  position:absolute;left:12px;bottom:12px;
+  display:none;
+  background:var(--bg);color:var(--ink);
+  border:3px solid var(--ink);border-radius:999px;
+  padding:6px 14px;
+  font-family:"Bagel Fat One","Arial Rounded MT Bold","Trebuchet MS",sans-serif;
+  font-weight:400;font-size:20px;
+}
+.frame[data-state="result"] .nameTag{display:block}
+
+.msg{
+  position:absolute;left:0;right:0;bottom:0;
+  padding:14px 16px;
+  background:var(--bg);color:var(--ink);
+  border-top:3px solid var(--ink);
+  font-size:15px;text-align:center;
+}
+.msg:empty{display:none}
+
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.row[hidden]{display:none}
+
+.btn{
+  font:inherit;font-weight:800;font-size:16px;
+  min-height:48px;padding:10px 20px;
+  border-radius:999px;
+  border:3px solid var(--ink);
+  background:var(--panel);color:var(--ink);
+  cursor:pointer;
+}
+.btn.primary{background:var(--accent);color:var(--on-accent);box-shadow:0 4px 0 var(--ink)}
+.btn.primary:active{transform:translateY(3px);box-shadow:0 1px 0 var(--ink)}
+.btn[hidden]{display:none}
+
+.shutter{
+  width:86px;height:86px;border-radius:50%;
+  background:var(--accent);
+  border:4px solid var(--ink);
+  box-shadow:0 6px 0 var(--ink);
+  cursor:pointer;
+  flex-shrink:0;
+}
+.shutter:active{transform:translateY(5px);box-shadow:0 1px 0 var(--ink)}
+.shutter:disabled{opacity:.5;cursor:default}
+
+.side{min-width:92px}
+#resultRow .btn.primary{flex:1}
+
+:focus-visible{outline:4px solid var(--ink);outline-offset:3px}
+.visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+@media (prefers-reduced-motion: reduce){
+  .frame canvas{animation:none}
+}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Surprise Click</h1>
+    <p class="tagline">Click two photo. Get one random filter. The original never shows.</p>
+  </header>
+
+  <section class="frame" id="frame" data-state="live" aria-label="Camera">
+    <video id="video" playsinline muted autoplay></video>
+    <canvas id="out"></canvas>
+    <div class="shuffle" id="shuffle"><span id="shuffleName"></span></div>
+    <div class="nameTag" id="nameTag" role="status"></div>
+    <div class="msg" id="msg"></div>
+  </section>
+
+  <div class="row" id="liveRow">
+    <button class="btn side" id="flip" type="button">Flip camera</button>
+    <button class="shutter" id="shutter" type="button" aria-label="Click photo"></button>
+    <button class="btn side" id="upload" type="button">Use a photo</button>
+    <input class="visually-hidden" id="file" type="file" accept="image/*" tabindex="-1">
+  </div>
+
+  <div class="row" id="resultRow" hidden>
+    <button class="btn" id="save" type="button">Save</button>
+    <button class="btn primary" id="again" type="button">Click again</button>
+    <button class="btn" id="share" type="button" hidden>Share</button>
+  </div>
+</main>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const W = 576, H = 768;
+  const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  const pickOne = arr => arr[Math.floor(Math.random() * arr.length)];
+  const calm = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const video = $('video'), out = $('out'), frame = $('frame'), msg = $('msg');
+  out.width = W; out.height = H;
+  const octx = out.getContext('2d');
+  const srcC = document.createElement('canvas');
+  srcC.width = W; srcC.height = H;
+  const sctx = srcC.getContext('2d', { willReadFrequently: true });
+
+  /* ---------- pixel helpers ---------- */
+  function lumOf(d) {
+    const n = W * H, l = new Float32Array(n);
+    for (let i = 0, p = 0; i < n; i++, p += 4) l[i] = .299 * d[p] + .587 * d[p + 1] + .114 * d[p + 2];
+    return l;
+  }
+  function blurF(a, r) {
+    const t = new Float32Array(a.length), o = new Float32Array(a.length), n = 2 * r + 1;
+    for (let y = 0; y < H; y++) {
+      const row = y * W; let s = 0;
+      for (let k = -r; k <= r; k++) s += a[row + clamp(k, 0, W - 1)];
+      for (let x = 0; x < W; x++) {
+        t[row + x] = s / n;
+        s += a[row + Math.min(W - 1, x + r + 1)] - a[row + Math.max(0, x - r)];
+      }
+    }
+    for (let x = 0; x < W; x++) {
+      let s = 0;
+      for (let k = -r; k <= r; k++) s += t[clamp(k, 0, H - 1) * W + x];
+      for (let y = 0; y < H; y++) {
+        o[y * W + x] = s / n;
+        s += t[Math.min(H - 1, y + r + 1) * W + x] - t[Math.max(0, y - r) * W + x];
+      }
+    }
+    return o;
+  }
+  function blurRGB(d, r) {
+    const t = new Uint8ClampedArray(d.length), n = 2 * r + 1;
+    for (let y = 0; y < H; y++) {
+      const row = y * W * 4;
+      for (let c = 0; c < 3; c++) {
+        let s = 0;
+        for (let k = -r; k <= r; k++) s += d[row + clamp(k, 0, W - 1) * 4 + c];
+        for (let x = 0; x < W; x++) {
+          t[row + x * 4 + c] = s / n;
+          s += d[row + Math.min(W - 1, x + r + 1) * 4 + c] - d[row + Math.max(0, x - r) * 4 + c];
+        }
+      }
+    }
+    for (let x = 0; x < W; x++) {
+      for (let c = 0; c < 3; c++) {
+        let s = 0;
+        for (let k = -r; k <= r; k++) s += t[(clamp(k, 0, H - 1) * W + x) * 4 + c];
+        for (let y = 0; y < H; y++) {
+          d[(y * W + x) * 4 + c] = s / n;
+          s += t[(Math.min(H - 1, y + r + 1) * W + x) * 4 + c] - t[(Math.max(0, y - r) * W + x) * 4 + c];
+        }
+      }
+    }
+  }
+  function sobel(l) {
+    const e = new Float32Array(W * H);
+    for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+      const i = y * W + x;
+      const gx = -l[i - W - 1] - 2 * l[i - 1] - l[i + W - 1] + l[i - W + 1] + 2 * l[i + 1] + l[i + W + 1];
+      const gy = -l[i - W - 1] - 2 * l[i - W] - l[i - W + 1] + l[i + W - 1] + 2 * l[i + W] + l[i + W + 1];
+      e[i] = Math.sqrt(gx * gx + gy * gy);
+    }
+    return e;
+  }
+  function grade(d, o) {
+    const sat = o.sat || 1, levels = o.levels || 0, gain = o.gain || 1;
+    const q = levels ? 255 / (levels - 1) : 0;
+    for (let p = 0; p < d.length; p += 4) {
+      const r = d[p], g = d[p + 1], b = d[p + 2], l = .299 * r + .587 * g + .114 * b;
+      let R = l + (r - l) * sat, G = l + (g - l) * sat, B = l + (b - l) * sat;
+      if (levels) { R = Math.round(R / q) * q; G = Math.round(G / q) * q; B = Math.round(B / q) * q; }
+      d[p] = R * gain; d[p + 1] = G * gain; d[p + 2] = B * gain;
+    }
+  }
+  function normLum(l) {
+    const h = new Uint32Array(256), n = l.length;
+    for (let i = 0; i < n; i++) h[clamp(l[i] | 0, 0, 255)]++;
+    let c = 0, lo = 0, hi = 255;
+    for (let i = 0; i < 256; i++) { c += h[i]; if (c >= n * .04) { lo = i; break; } }
+    c = 0;
+    for (let i = 255; i >= 0; i--) { c += h[i]; if (c >= n * .04) { hi = i; break; } }
+    return v => clamp((v - lo) / Math.max(1, hi - lo), 0, .999);
+  }
+  function darkenEdges(d, e, from, span, strength) {
+    for (let i = 0; i < e.length; i++) {
+      const k = 1 - clamp((e[i] - from) / span, 0, 1) * strength;
+      if (k < 1) { const p = i * 4; d[p] *= k; d[p + 1] *= k; d[p + 2] *= k; }
+    }
+  }
+  function sample(s, od, i, sx, sy) {
+    sx = clamp(sx, 0, W - 1.001); sy = clamp(sy, 0, H - 1.001);
+    const x0 = sx | 0, y0 = sy | 0, fx = sx - x0, fy = sy - y0;
+    const a = (y0 * W + x0) * 4, b = a + 4, c = a + W * 4, e = c + 4;
+    for (let k = 0; k < 3; k++) {
+      od[i + k] = (s[a + k] * (1 - fx) + s[b + k] * fx) * (1 - fy) + (s[c + k] * (1 - fx) + s[e + k] * fx) * fy;
+    }
+    od[i + 3] = 255;
+  }
+  let SX = 0, SY = 0;
+  function warp(img, fn) {
+    const s = img.data, o = new ImageData(W, H), od = o.data;
+    let i = 0;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++, i += 4) { fn(x, y); sample(s, od, i, SX, SY); }
+    return o;
+  }
+  const lerp = (a, b, t) => a + (b - a) * t;
+
+  /* ---------- filters ---------- */
+  function cartoon(img) {
+    const d = img.data;
+    const e = sobel(blurF(lumOf(d), 2));
+    blurRGB(d, 3); blurRGB(d, 3);
+    grade(d, { sat: 1.45, levels: 6 });
+    darkenEdges(d, e, 40, 50, .9);
+    octx.putImageData(img, 0, 0);
+  }
+  function sketch(img) {
+    const d = img.data, l = lumOf(d), b = blurF(l, 9);
+    for (let i = 0, p = 0; i < l.length; i++, p += 4) {
+      const v = 255 * Math.pow(Math.min(1, l[i] / (b[i] + 8)), 2);
+      d[p] = v; d[p + 1] = v * .97; d[p + 2] = v * .9;
+    }
+    octx.putImageData(img, 0, 0);
+  }
+  const POP_PALETTES = [
+    [[27, 20, 100], [255, 61, 129], [255, 214, 0], [255, 255, 255]],
+    [[20, 20, 60], [0, 190, 255], [255, 80, 160], [255, 240, 120]],
+    [[40, 0, 70], [160, 40, 255], [255, 120, 40], [255, 245, 200]]
+  ];
+  function popart(img) {
+    const d = img.data;
+    blurRGB(d, 3);
+    const l = lumOf(d), norm = normLum(l), pal = pickOne(POP_PALETTES);
+    for (let y = 0, i = 0; y < H; y++) for (let x = 0; x < W; x++, i++) {
+      const t = norm(l[i]);
+      let idx = Math.floor(t * 4);
+      const dx = x % 9 - 4, dy = y % 9 - 4;
+      if (idx > 0 && dx * dx + dy * dy < 5 && (t * 4 - idx) < .45) idx -= 1;
+      const c = pal[idx], p = i * 4;
+      d[p] = c[0]; d[p + 1] = c[1]; d[p + 2] = c[2];
+    }
+    octx.putImageData(img, 0, 0);
+  }
+  function pixel(img) {
+    const s = img.data, o = new ImageData(W, H), d = o.data, B = 9;
+    for (let by = 0; by < H; by += B) for (let bx = 0; bx < W; bx += B) {
+      let r = 0, g = 0, b = 0, n = 0;
+      const ye = Math.min(H, by + B), xe = Math.min(W, bx + B);
+      for (let y = by; y < ye; y++) for (let x = bx; x < xe; x++) {
+        const p = (y * W + x) * 4; r += s[p]; g += s[p + 1]; b += s[p + 2]; n++;
+      }
+      r /= n; g /= n; b /= n;
+      const l = .299 * r + .587 * g + .114 * b;
+      r = l + (r - l) * 1.3; g = l + (g - l) * 1.3; b = l + (b - l) * 1.3;
+      const q = 255 / 5;
+      r = Math.round(r / q) * q; g = Math.round(g / q) * q; b = Math.round(b / q) * q;
+      for (let y = by; y < ye; y++) for (let x = bx; x < xe; x++) {
+        const p = (y * W + x) * 4; d[p] = r; d[p + 1] = g; d[p + 2] = b; d[p + 3] = 255;
+      }
+    }
+    octx.putImageData(o, 0, 0);
+  }
+  function neon(img) {
+    const d = img.data, orig = new Uint8ClampedArray(d);
+    const e = sobel(blurF(lumOf(d), 2)), g = blurF(e, 6);
+    const flip = Math.random() < .5;
+    for (let y = 0, i = 0; y < H; y++) {
+      const t = flip ? 1 - y / H : y / H;
+      const cr = lerp(0, 255, t), cg = lerp(240, 50, t), cb = lerp(255, 170, t);
+      for (let x = 0; x < W; x++, i++) {
+        const v = Math.min(1, e[i] / 120 + g[i] / 70), p = i * 4;
+        d[p] = 10 * (1 - v) + cr * v + orig[p] * .15;
+        d[p + 1] = 6 * (1 - v) + cg * v + orig[p + 1] * .15;
+        d[p + 2] = 32 * (1 - v) + cb * v + orig[p + 2] * .22;
+      }
+    }
+    octx.putImageData(img, 0, 0);
+  }
+  function glitch(img) {
+    const d = img.data, s = new Uint8ClampedArray(d);
+    const bands = 8 + Math.floor(Math.random() * 6);
+    for (let b = 0; b < bands; b++) {
+      const y0 = Math.floor(rnd(0, H - 10)), hh = Math.floor(rnd(8, 40));
+      const off = Math.floor(rnd(-90, 90));
+      for (let y = y0; y < Math.min(H, y0 + hh); y++) {
+        const row = y * W * 4, tmp = s.slice(row, row + W * 4);
+        for (let x = 0; x < W; x++) {
+          const sx = clamp(x - off, 0, W - 1) * 4;
+          s[row + x * 4] = tmp[sx]; s[row + x * 4 + 1] = tmp[sx + 1]; s[row + x * 4 + 2] = tmp[sx + 2];
+        }
+      }
+    }
+    const sh = Math.floor(rnd(12, 24));
+    for (let y = 0; y < H; y++) {
+      const row = y * W * 4, dim = (y % 3 === 0) ? .8 : 1;
+      for (let x = 0; x < W; x++) {
+        const p = row + x * 4;
+        d[p] = s[row + clamp(x - sh, 0, W - 1) * 4] * dim;
+        d[p + 1] = s[p + 1] * dim;
+        d[p + 2] = s[row + clamp(x + sh, 0, W - 1) * 4 + 2] * dim;
+        d[p + 3] = 255;
+      }
+    }
+    for (let k = 0; k < 3; k++) {
+      const x0 = Math.floor(rnd(0, W - 120)), y0 = Math.floor(rnd(0, H - 60));
+      const bw = Math.floor(rnd(60, 160)), bh = Math.floor(rnd(14, 50));
+      for (let y = y0; y < Math.min(H, y0 + bh); y++) for (let x = x0; x < Math.min(W, x0 + bw); x++) {
+        const p = (y * W + x) * 4; d[p] = 255 - d[p]; d[p + 1] = 255 - d[p + 1]; d[p + 2] = 255 - d[p + 2];
+      }
+    }
+    octx.putImageData(img, 0, 0);
+  }
+  function bighead(img) {
+    const cx = W * .5, cy = H * .42, R = Math.min(W, H) * .52;
+    octx.putImageData(warp(img, (x, y) => {
+      const dx = x - cx, dy = y - cy, r = Math.sqrt(dx * dx + dy * dy);
+      if (r < R) { const f = 1 - .66 * Math.pow(1 - r / R, 2); SX = cx + dx * f; SY = cy + dy * f; }
+      else { SX = x; SY = y; }
+    }), 0, 0);
+  }
+  function pinch(img) {
+    const cx = W * .5, cy = H * .42, R = Math.min(W, H) * .55;
+    octx.putImageData(warp(img, (x, y) => {
+      const dx = x - cx, dy = y - cy, r = Math.sqrt(dx * dx + dy * dy);
+      if (r < R) { const f = 1 + .95 * Math.pow(1 - r / R, 2); SX = cx + dx * f; SY = cy + dy * f; }
+      else { SX = x; SY = y; }
+    }), 0, 0);
+  }
+  function swirl(img) {
+    const cx = W * .5, cy = H * .45, R = Math.min(W, H) * .6;
+    const k = (Math.random() < .5 ? -1 : 1) * 2.6;
+    octx.putImageData(warp(img, (x, y) => {
+      const dx = x - cx, dy = y - cy, r = Math.sqrt(dx * dx + dy * dy);
+      if (r < R) {
+        const a = k * Math.pow(1 - r / R, 2), c = Math.cos(a), s = Math.sin(a);
+        SX = cx + dx * c - dy * s; SY = cy + dx * s + dy * c;
+      } else { SX = x; SY = y; }
+    }), 0, 0);
+  }
+  function wobble(img) {
+    const ph = rnd(0, 6.28), ax = rnd(16, 26), ay = rnd(8, 14);
+    octx.putImageData(warp(img, (x, y) => {
+      SX = x + Math.sin(y / 24 + ph) * ax;
+      SY = y + Math.sin(x / 38 + ph) * ay;
+    }), 0, 0);
+  }
+  function mirror(img) {
+    const left = Math.random() < .5;
+    octx.putImageData(warp(img, (x, y) => {
+      SY = y;
+      SX = left ? (x < W / 2 ? x : W - 1 - x) : (x >= W / 2 ? x : W - 1 - x);
+    }), 0, 0);
+  }
+  function thermal(img) {
+    const d = img.data;
+    blurRGB(d, 2);
+    const l = lumOf(d), norm = normLum(l);
+    const stops = [[10, 0, 40], [90, 0, 160], [220, 30, 90], [255, 160, 0], [255, 255, 150]];
+    for (let i = 0, p = 0; i < l.length; i++, p += 4) {
+      const t = norm(l[i]) * 4, k = Math.min(3, Math.floor(t)), f = t - k;
+      const a = stops[k], b = stops[k + 1];
+      d[p] = lerp(a[0], b[0], f); d[p + 1] = lerp(a[1], b[1], f); d[p + 2] = lerp(a[2], b[2], f);
+    }
+    octx.putImageData(img, 0, 0);
+  }
+  const EMOJIS = ['🕶️', '🤡', '👑', '🥸', '😂', '🔥', '💀', '🎉', '🐶', '🌈', '✨', '🤪', '🍕', '💥'];
+  const CAPTIONS = ['Mass look', 'Em chesthunnav ra?', 'Placement vachindi!', 'Full josh', 'Ayyo Rama!', 'Scene super bro', 'Thaggedhe le'];
+  function stickers(img) {
+    const d = img.data;
+    blurRGB(d, 1);
+    grade(d, { sat: 1.5, levels: 7 });
+    octx.putImageData(img, 0, 0);
+    octx.textAlign = 'center'; octx.textBaseline = 'middle';
+    const n = 5 + Math.floor(Math.random() * 3);
+    for (let k = 0; k < n; k++) {
+      const size = rnd(70, 130), x = rnd(size / 2, W - size / 2), y = rnd(size / 2, H - 140);
+      octx.save();
+      octx.translate(x, y); octx.rotate(rnd(-.5, .5));
+      octx.font = size + 'px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+      octx.fillText(pickOne(EMOJIS), 0, 0);
+      octx.restore();
+    }
+    const text = pickOne(CAPTIONS).toUpperCase();
+    let fs = 58;
+    octx.font = '900 ' + fs + 'px Impact,"Arial Black",sans-serif';
+    const wText = octx.measureText(text).width;
+    if (wText > W * .9) fs = Math.floor(fs * W * .9 / wText);
+    octx.font = '900 ' + fs + 'px Impact,"Arial Black",sans-serif';
+    octx.lineJoin = 'round'; octx.lineWidth = fs * .16;
+    octx.strokeStyle = '#000'; octx.fillStyle = '#fff';
+    octx.strokeText(text, W / 2, H - 52); octx.fillText(text, W / 2, H - 52);
+  }
+  function comic(img) {
+    const d = img.data;
+    const e = sobel(blurF(lumOf(d), 1));
+    blurRGB(d, 2);
+    grade(d, { sat: 1.5, levels: 5 });
+    const l = lumOf(d);
+    for (let y = 0, i = 0; y < H; y++) for (let x = 0; x < W; x++, i++) {
+      const dx = x % 8 - 3.5, dy = y % 8 - 3.5;
+      if (Math.sqrt(dx * dx + dy * dy) < (1 - l[i] / 255) * 4.6) {
+        const p = i * 4; d[p] *= .5; d[p + 1] *= .5; d[p + 2] *= .5;
+      }
+    }
+    darkenEdges(d, e, 45, 40, .95);
+    octx.putImageData(img, 0, 0);
+    const cx = W * .76, cy = H * .15, pts = 14;
+    octx.beginPath();
+    for (let i = 0; i < pts * 2; i++) {
+      const a = Math.PI * i / pts, r = i % 2 ? 62 : 100;
+      const px = cx + Math.cos(a) * r, py = cy + Math.sin(a) * r * .8;
+      i ? octx.lineTo(px, py) : octx.moveTo(px, py);
+    }
+    octx.closePath();
+    octx.fillStyle = '#FFE94D'; octx.strokeStyle = '#1B1464'; octx.lineWidth = 7; octx.lineJoin = 'round';
+    octx.fill(); octx.stroke();
+    octx.save();
+    octx.translate(cx, cy); octx.rotate(-.17);
+    octx.textAlign = 'center'; octx.textBaseline = 'middle';
+    octx.font = '900 44px Impact,"Arial Black",sans-serif';
+    octx.strokeStyle = '#1B1464'; octx.lineWidth = 8; octx.fillStyle = '#FF3D81';
+    const t = pickOne(['POW!', 'BOOM!', 'ZAP!', 'WOW!']);
+    octx.strokeText(t, 0, 0); octx.fillText(t, 0, 0);
+    octx.restore();
+  }
+  function anime(img) {
+    const d = img.data, base = new Uint8ClampedArray(d);
+    const e = sobel(blurF(lumOf(base), 1));
+    blurRGB(d, 8);
+    for (let p = 0; p < d.length; p += 4) {
+      for (let c = 0; c < 3; c++) {
+        const b = d[p + c] * .6;
+        d[p + c] = 255 - (255 - base[p + c]) * (255 - b) / 255;
+      }
+      d[p] *= 1.04; d[p + 2] *= 1.06;
+    }
+    grade(d, { sat: 1.35, gain: 1.03 });
+    darkenEdges(d, e, 70, 80, .7);
+    octx.putImageData(img, 0, 0);
+    octx.fillStyle = '#fff'; octx.shadowColor = '#fff';
+    for (let k = 0; k < 9; k++) {
+      const x = rnd(30, W - 30), y = rnd(30, H - 30), s = rnd(10, 30);
+      octx.shadowBlur = 14;
+      octx.beginPath();
+      octx.moveTo(x, y - s);
+      octx.quadraticCurveTo(x, y, x + s, y);
+      octx.quadraticCurveTo(x, y, x, y + s);
+      octx.quadraticCurveTo(x, y, x - s, y);
+      octx.quadraticCurveTo(x, y, x, y - s);
+      octx.fill();
+    }
+    octx.shadowBlur = 0;
+  }
+
+  const FILTERS = [
+    { name: 'Cartoon Mode', run: cartoon },
+    { name: 'Pencil Sketch', run: sketch },
+    { name: 'Pop Art', run: popart },
+    { name: 'Pixel Boy', run: pixel },
+    { name: 'Neon Night', run: neon },
+    { name: 'Glitch Mass', run: glitch },
+    { name: 'Pedda Thala', run: bighead },
+    { name: 'Chinna Thala', run: pinch },
+    { name: 'Gir Gir Swirl', run: swirl },
+    { name: 'Wobble Wobble', run: wobble },
+    { name: 'Rendu Face', run: mirror },
+    { name: 'Thermal Cam', run: thermal },
+    { name: 'Sticker Bomb', run: stickers },
+    { name: 'Comic Book', run: comic },
+    { name: 'Anime Glow', run: anime }
+  ];
+  window.__FILTERS = FILTERS;
+
+  /* ---------- camera + flow ---------- */
+  let stream = null, facing = 'user', mirrorNow = true, state = 'live', last = -1;
+
+  function setState(s) {
+    state = s;
+    frame.dataset.state = s;
+    $('liveRow').hidden = (s === 'result');
+    $('resultRow').hidden = (s !== 'result');
+    $('shutter').disabled = (s !== 'live');
+  }
+  function setMsg(t) { msg.textContent = t || ''; }
+
+  async function startCam() {
+    stopCam();
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setMsg('Camera needs https or localhost. You can still tap "Use a photo".');
+      return;
+    }
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: facing }, width: { ideal: 1280 }, height: { ideal: 960 } },
+        audio: false
+      });
+      video.srcObject = stream;
+      await video.play();
+      const fm = stream.getVideoTracks()[0].getSettings().facingMode;
+      mirrorNow = fm ? fm === 'user' : true;
+      video.classList.toggle('mirror', mirrorNow);
+      setMsg('');
+    } catch (e) {
+      setMsg('Camera is blocked. Allow camera access in your browser, or tap "Use a photo".');
+    }
+  }
+  function stopCam() {
+    if (stream) stream.getTracks().forEach(t => t.stop());
+    stream = null;
+  }
+
+  function drawCover(source, sw, sh, flipX) {
+    const scale = Math.max(W / sw, H / sh), dw = sw * scale, dh = sh * scale;
+    sctx.save();
+    sctx.clearRect(0, 0, W, H);
+    if (flipX) { sctx.translate(W, 0); sctx.scale(-1, 1); }
+    sctx.drawImage(source, (W - dw) / 2, (H - dh) / 2, dw, dh);
+    sctx.restore();
+  }
+
+  function pickFilter() {
+    let i;
+    do { i = Math.floor(Math.random() * FILTERS.length); } while (i === last && FILTERS.length > 1);
+    last = i;
+    return FILTERS[i];
+  }
+  function roll(final) {
+    const el = $('shuffleName');
+    return new Promise(res => {
+      if (calm) { el.textContent = final; setTimeout(res, 350); return; }
+      let n = 0;
+      const iv = setInterval(() => {
+        el.textContent = pickOne(FILTERS).name;
+        if (++n >= 11) { clearInterval(iv); el.textContent = final; setTimeout(res, 380); }
+      }, 95);
+    });
+  }
+
+  async function shoot(grab) {
+    if (state !== 'live') return;
+    setState('busy');                       // original frame is hidden right away
+    grab();
+    const img = sctx.getImageData(0, 0, W, H);
+    const f = pickFilter();
+    await roll(f.name);
+    await new Promise(r => setTimeout(r, 60));
+    try { f.run(img); }
+    catch (e) { console.error(e); cartoon(sctx.getImageData(0, 0, W, H)); }
+    $('nameTag').textContent = f.name;
+    setState('result');
+  }
+
+  $('shutter').addEventListener('click', () => {
+    if (!video.videoWidth) { setMsg('Camera is not ready yet.'); return; }
+    shoot(() => drawCover(video, video.videoWidth, video.videoHeight, mirrorNow));
+  });
+  $('flip').addEventListener('click', () => {
+    facing = facing === 'user' ? 'environment' : 'user';
+    startCam();
+  });
+  $('upload').addEventListener('click', () => $('file').click());
+  $('file').addEventListener('change', async e => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    let bmp;
+    try { bmp = await createImageBitmap(file, { imageOrientation: 'from-image' }); }
+    catch (_) {
+      bmp = await new Promise((ok, no) => {
+        const im = new Image();
+        im.onload = () => ok(im); im.onerror = no;
+        im.src = URL.createObjectURL(file);
+      }).catch(() => null);
+    }
+    if (!bmp) { setMsg('That file could not be opened.'); return; }
+    const sw = bmp.width || bmp.naturalWidth, sh = bmp.height || bmp.naturalHeight;
+    shoot(() => drawCover(bmp, sw, sh, false));
+  });
+  $('again').addEventListener('click', () => {
+    setState('live');
+    if (!stream) startCam(); else video.play().catch(() => {});
+  });
+  $('save').addEventListener('click', () => {
+    out.toBlob(b => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(b);
+      a.download = 'surprise-click-' + Date.now() + '.png';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    }, 'image/png');
+  });
+  if (navigator.share && navigator.canShare) $('share').hidden = false;
+  $('share').addEventListener('click', () => {
+    out.toBlob(async b => {
+      const file = new File([b], 'surprise-click.png', { type: 'image/png' });
+      try {
+        if (navigator.canShare({ files: [file] })) await navigator.share({ files: [file], title: 'Surprise Click' });
+      } catch (_) {}
+    }, 'image/png');
+  });
+
+  setState('live');
+  startCam();
+})();
+</script>
+</body>
+</html>
